@@ -7,7 +7,6 @@ Fallback implementation of core functions (без Cython).
 import hashlib
 import hmac
 import platform
-import secrets
 import socket
 import time
 import uuid

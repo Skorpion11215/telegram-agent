@@ -17,11 +17,9 @@ bot-режим: сайт выполняет ТОЛЬКО авторизацию 
 """
 
 import asyncio
-import configparser
 import json
 import logging
 import os
-import sys
 from pathlib import Path
 
 from aiohttp import web
@@ -29,7 +27,6 @@ from aiohttp import web
 from agent_logic import (
     MANAGEMENT_BOT,
     MANAGEMENT_SITE,
-    find_tunnel_url,
     normalize_management,
     read_config,
 )
@@ -81,7 +78,6 @@ async def _collect_dialogs() -> list:
 
 async def _fetch_credentials(endpoint: str) -> bool:
     """Получить api_key/api_secret с сервера по токену (один раз за сессию)."""
-    global _credentials
     if _credentials["fetched"]:
         return bool(_credentials["api_key"] and _credentials["api_secret"])
     try:
@@ -195,7 +191,7 @@ async def handle_send_code(request: web.Request) -> web.Response:
 
 async def handle_verify_code(request: web.Request) -> web.Response:
     """Подтвердить код из Telegram."""
-    global _telethon_client, _session_string, _phone, _phone_code_hash
+    global _session_string
 
     try:
         body = await request.json()
@@ -222,7 +218,7 @@ async def handle_verify_code(request: web.Request) -> web.Response:
 
 async def handle_verify_2fa(request: web.Request) -> web.Response:
     """Подтвердить 2FA пароль."""
-    global _telethon_client, _session_string
+    global _session_string
 
     try:
         body = await request.json()

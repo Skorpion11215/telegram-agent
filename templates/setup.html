@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Настройка TransferStats Agent</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e0e0e0; }
+.container { max-width: 480px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 1.4rem; margin-bottom: 20px; color: #fff; }
+h2 { font-size: 1.1rem; margin-bottom: 16px; color: #ccc; }
+.step { display: none; background: #1a1a1a; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+.step.active { display: block; }
+label { display: block; font-size: 0.85rem; color: #888; margin-bottom: 4px; margin-top: 12px; }
+input[type="text"], input[type="tel"], input[type="number"], input[type="password"] {
+    width: 100%; padding: 14px; font-size: 16px; border: 1px solid #333;
+    border-radius: 8px; background: #0a0a0a; color: #fff; margin-bottom: 8px;
+}
+input:focus { outline: none; border-color: #0088cc; }
+button { width: 100%; padding: 14px; font-size: 16px; border: none; border-radius: 8px;
+    background: #0088cc; color: #fff; cursor: pointer; margin-top: 8px; }
+button:hover { background: #006699; }
+button:disabled { background: #333; cursor: not-allowed; }
+.help { font-size: 0.8rem; color: #666; margin-top: 4px; }
+.help a { color: #0088cc; }
+.error { color: #ff4444; font-size: 0.85rem; margin-top: 8px; }
+.success { color: #44ff44; font-size: 0.85rem; margin-top: 8px; }
+#groups-list { max-height: 400px; overflow-y: auto; margin: 12px 0; }
+.group-item { padding: 12px; border-bottom: 1px solid #222; display: flex; align-items: center; cursor: pointer; }
+.group-item:hover { background: #222; }
+.group-item input { margin-right: 12px; width: 20px; height: 20px; }
+.group-item label { flex: 1; font-size: 0.95rem; color: #ddd; margin: 0; cursor: pointer; }
+#search { width: 100%; padding: 12px; font-size: 14px; border: 1px solid #333;
+    border-radius: 8px; background: #0a0a0a; color: #fff; margin-bottom: 12px; }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #333;
+    border-top: 2px solid #0088cc; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.note { font-size: 0.9rem; color: #aaa; background: #101519; border-left: 3px solid #0088cc;
+    padding: 12px; border-radius: 6px; margin: 12px 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>TransferStats Agent</h1>
+
+    <!-- Шаг 1: API credentials -->
+    <div id="step1" class="step active">
+        <h2 id="step1-title">Шаг 1: Telegram API</h2>
+        <p style="font-size:0.85rem;color:#888;margin-bottom:12px;">
+            Получите API ID и API Hash на
+            <a href="https://my.telegram.org/apps" target="_blank" style="color:#0088cc;">my.telegram.org</a>
+        </p>
+        <label>API ID</label>
+        <input type="number" id="api_id" placeholder="12345678">
+        <label>API Hash</label>
+        <input type="text" id="api_hash" placeholder="abcdef1234567890abcdef1234567890">
+        <button onclick="goToStep2()">Далее</button>
+        <div id="step1-error" class="error"></div>
+    </div>
+
+    <!-- Шаг 2: Номер телефона -->
+    <div id="step2" class="step">
+        <h2>Шаг 2: Номер телефона</h2>
+        <label>Номер телефона</label>
+        <input type="tel" id="phone" placeholder="+79001234567">
+        <button onclick="sendCode()" id="send-code-btn">Отправить код</button>
+        <div id="step2-error" class="error"></div>
+    </div>
+
+    <!-- Шаг 3: Код подтверждения -->
+    <div id="step3" class="step">
+        <h2>Шаг 3: Код из Telegram</h2>
+        <p style="font-size:0.85rem;color:#888;margin-bottom:12px;">
+            Введите код, который прислал Telegram
+        </p>
+        <label>Код</label>
+        <input type="text" id="code" inputmode="numeric" placeholder="12345">
+        <button onclick="verifyCode()" id="verify-code-btn">Подтвердить</button>
+        <div id="step3-error" class="error"></div>
+        <div id="step3-2fa" style="display:none;">
+            <label>Пароль 2FA</label>
+            <input type="password" id="password_2fa" placeholder="Пароль">
+            <button onclick="verify2fa()">Подтвердить 2FA</button>
+        </div>
+    </div>
+
+    <!-- Шаг 4 (site-режим): Выбор групп -->
+    <div id="step4" class="step">
+        <h2>Шаг 4: Выберите группы</h2>
+        <p style="font-size:0.85rem;color:#888;margin-bottom:12px;">
+            Отметьте группы для пересылки сообщений
+        </p>
+        <input type="text" id="search" placeholder="Поиск..." oninput="filterGroups()">
+        <div id="groups-list"></div>
+        <button onclick="finish()" id="finish-btn">Завершить настройку</button>
+        <div id="step4-error" class="error"></div>
+    </div>
+
+    <!-- Шаг 4 (bot-режим): только авторизация, группы в боте -->
+    <div id="stepbot" class="step">
+        <h2>Авторизация завершена</h2>
+        <div class="note">
+            Управление группами выполнено прямо в боте.<br>
+            В течение 1–2 минут бот получит список всех ваших групп —
+            включайте и выключайте трансляцию кнопками в меню
+            «📋 Транслируемые группы».
+        </div>
+        <button onclick="finish()" id="finish-btn-bot">Завершить настройку</button>
+        <div id="stepbot-error" class="error"></div>
+    </div>
+
+    <!-- Готово -->
+    <div id="done" class="step">
+        <h2>Готово!</h2>
+        <p id="done-text" style="font-size:0.95rem;color:#44ff44;margin:16px 0;">
+            Агент запущен и работает. Можете закрыть эту страницу.
+        </p>
+        <p style="font-size:0.85rem;color:#888;">
+            Управление: <code>telegram-agent status</code><br>
+            Перенастройка: <code>telegram-agent reconfigure</code>
+        </p>
+    </div>
+</div>
+
+<script>
+const TOKEN = '';
+const RECONFIGURE = false;
+const MANAGEMENT = 'site';
+let allGroups = [];
+let selectedGroups = new Set();
+let apiId = '';
+let apiHash = '';
+let phone = '';
+
+function showStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    var el = document.getElementById('step' + n) || document.getElementById(n);
+    if (el) el.classList.add('active');
+}
+
+function afterAuth() {
+    if (MANAGEMENT === 'bot') {
+        showStep('stepbot');
+    } else {
+        loadGroups().then(() => showStep(4));
+    }
+}
+
+// Reconfigure mode (site): skip to step 4
+async function initReconfigure() {
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = 'none';
+    document.getElementById('step4').classList.add('active');
+    document.querySelector('#step4 h2').textContent = 'Измените группы для пересылки';
+
+    try {
+        const sr = await fetch('/api/selected-groups');
+        const sd = await sr.json();
+        if (sd.ok && sd.selected) {
+            sd.selected.forEach(id => selectedGroups.add(id));
+        }
+    } catch(e) {}
+
+    await loadGroups();
+}
+
+window.addEventListener('load', function() {
+    if (MANAGEMENT === 'bot') {
+        document.getElementById('step1-title').textContent =
+            'Авторизация Telegram (группы настраиваются в боте)';
+    }
+    if (RECONFIGURE && MANAGEMENT !== 'bot') {
+        initReconfigure();
+    }
+});
+
+function goToStep2() {
+    apiId = document.getElementById('api_id').value.trim();
+    apiHash = document.getElementById('api_hash').value.trim();
+    if (!apiId || !apiHash) {
+        document.getElementById('step1-error').textContent = 'Заполните все поля';
+        return;
+    }
+    document.getElementById('step1-error').textContent = '';
+    showStep(2);
+}
+
+async function sendCode() {
+    phone = document.getElementById('phone').value.trim();
+    if (!phone) {
+        document.getElementById('step2-error').textContent = 'Введите номер телефона';
+        return;
+    }
+    document.getElementById('send-code-btn').disabled = true;
+    document.getElementById('send-code-btn').innerHTML = '<span class="spinner"></span> Отправка...';
+    try {
+        const r = await fetch('/api/send-code', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({api_id: apiId, api_hash: apiHash, phone: phone})
+        });
+        const d = await r.json();
+        if (d.ok) {
+            showStep(3);
+        } else {
+            document.getElementById('step2-error').textContent = d.error || 'Ошибка';
+        }
+    } catch(e) {
+        document.getElementById('step2-error').textContent = 'Ошибка сети';
+    }
+    document.getElementById('send-code-btn').disabled = false;
+    document.getElementById('send-code-btn').textContent = 'Отправить код';
+}
+
+async function verifyCode() {
+    const code = document.getElementById('code').value.trim();
+    if (!code) {
+        document.getElementById('step3-error').textContent = 'Введите код';
+        return;
+    }
+    document.getElementById('verify-code-btn').disabled = true;
+    document.getElementById('verify-code-btn').innerHTML = '<span class="spinner"></span> Проверка...';
+    try {
+        const r = await fetch('/api/verify-code', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({code: code})
+        });
+        const d = await r.json();
+        if (d.needs_2fa) {
+            document.getElementById('step3-2fa').style.display = 'block';
+        } else if (d.ok) {
+            afterAuth();
+        } else {
+            document.getElementById('step3-error').textContent = d.error || 'Неверный код';
+        }
+    } catch(e) {
+        document.getElementById('step3-error').textContent = 'Ошибка сети';
+    }
+    document.getElementById('verify-code-btn').disabled = false;
+    document.getElementById('verify-code-btn').textContent = 'Подтвердить';
+}
+
+async function verify2fa() {
+    const pw = document.getElementById('password_2fa').value;
+    if (!pw) return;
+    try {
+        const r = await fetch('/api/verify-2fa', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({password: pw})
+        });
+        const d = await r.json();
+        if (d.ok) {
+            afterAuth();
+        } else {
+            document.getElementById('step3-error').textContent = d.error || 'Неверный пароль';
+        }
+    } catch(e) {
+        document.getElementById('step3-error').textContent = 'Ошибка сети';
+    }
+}
+
+async function loadGroups() {
+    try {
+        const r = await fetch('/api/groups');
+        const d = await r.json();
+        if (d.ok) {
+            allGroups = d.groups;
+            renderGroups(allGroups);
+        } else {
+            document.getElementById('step4-error').textContent = d.error || 'Ошибка загрузки групп';
+        }
+    } catch(e) {
+        document.getElementById('step4-error').textContent = 'Ошибка загрузки групп';
+    }
+}
+
+function renderGroups(groups) {
+    const list = document.getElementById('groups-list');
+    list.innerHTML = '';
+    groups.forEach(g => {
+        const div = document.createElement('div');
+        div.className = 'group-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.id = 'g_'+g.id; cb.checked = selectedGroups.has(g.id) ? 'checked' : '';
+        cb.onchange = function() { toggleGroup(g.id); };
+        const lbl = document.createElement('label');
+        lbl.htmlFor = 'g_'+g.id; lbl.textContent = g.title;
+        div.appendChild(cb); div.appendChild(lbl);
+        list.appendChild(div);
+    });
+}
+
+function toggleGroup(id) {
+    if (selectedGroups.has(id)) {
+        selectedGroups.delete(id);
+    } else {
+        selectedGroups.add(id);
+    }
+}
+
+function filterGroups() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const filtered = allGroups.filter(g => g.title.toLowerCase().includes(q));
+    renderGroups(filtered);
+}
+
+async function finish() {
+    const isBot = MANAGEMENT === 'bot';
+    if (!isBot && selectedGroups.size === 0) {
+        document.getElementById('step4-error').textContent = 'Выберите хотя бы одну группу';
+        return;
+    }
+    const btn = document.getElementById(isBot ? 'finish-btn-bot' : 'finish-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Сохранение...';
+    try {
+        const payload = RECONFIGURE
+            ? { groups: Array.from(selectedGroups) }
+            : {
+                api_id: apiId, api_hash: apiHash, phone: phone,
+                token: TOKEN, api_key: '', api_secret: '',
+                groups: isBot ? [] : Array.from(selectedGroups)
+            };
+        const r = await fetch('/api/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const d = await r.json();
+        if (d.ok) {
+            if (isBot) {
+                document.getElementById('done-text').textContent =
+                    'Агент запущен. Список групп скоро появится в боте — управляйте трансляцией там.';
+            }
+            showStep('done');
+            fetch('/api/finish', {method: 'POST'});
+        } else {
+            var errEl = isBot ? document.getElementById('stepbot-error')
+                              : document.getElementById('step4-error');
+            if (errEl) errEl.textContent = d.error || 'Ошибка';
+        }
+    } catch(e) {
+        var errEl2 = isBot ? document.getElementById('stepbot-error')
+                           : document.getElementById('step4-error');
+        if (errEl2) errEl2.textContent = 'Ошибка сети';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Завершить настройку';
+}
+</script>
+</body>
+</html>

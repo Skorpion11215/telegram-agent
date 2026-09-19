@@ -1,0 +1,15 @@
+[Unit]
+Description=TransferStats Agent
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/telegram-agent
+ExecStart=/opt/telegram-agent/venv/bin/python agent.py
+Restart=always
+RestartSec=10
+User=root
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

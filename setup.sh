@@ -252,6 +252,9 @@ ExecStart=${INSTALL_DIR}/run_setup_web.sh
 Restart=no
 User=root
 Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
 EOF
 
     cat > "$INSTALL_DIR/run_setup_web.sh" << EOF

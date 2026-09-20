@@ -8,7 +8,7 @@ set -e
 #
 # Использование (автоматическая установка ботом по SSH):
 #   bash setup.sh <TOKEN> --management bot --harden --non-interactive \
-#        --endpoint https://bot.transfer-stats.online
+#        --endpoint https://ingest.pulsedrive.pro
 #
 # Флаги:
 #   --token T / позиционный T   токен агента (выдаётся ботом /indirect_auth)
@@ -26,7 +26,7 @@ NC='\033[0m'
 
 TOKEN=""
 MANAGEMENT="site"
-ENDPOINT="${AGENT_ENDPOINT:-https://bot.transfer-stats.online}"
+ENDPOINT="${AGENT_ENDPOINT:-https://ingest.pulsedrive.pro}"
 REPO="${AGENT_REPO:-https://github.com/Skorpion11215/telegram-agent.git}"
 INSTALL_DIR="/opt/telegram-agent"
 HARDEN=0

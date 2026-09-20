@@ -200,6 +200,37 @@ def read_config(config_path: Path | str) -> dict:
     }
 
 
+def apply_heartbeat_management(resp_data, current: str) -> str | None:
+    """Сервер авторитетен по management (heartbeat 'management' field). None — не менять."""
+    if not isinstance(resp_data, dict):
+        return None
+    want = normalize_management(resp_data.get("management"))
+    if resp_data.get("management") is None or want == current:
+        return None
+    return want
+
+
+def write_management_ini(ini_path, mode: str) -> None:
+    """Обновить [agent] management в agent.ini, не трогая остальные поля."""
+    from pathlib import Path
+    path = Path(ini_path)
+    text = path.read_text(encoding="utf-8")
+    m = re.search(r"(?m)^management\s*=.*$", text)
+    line = f"management = {mode}"
+    if m:
+        text = text[:m.start()] + line + text[m.end():]
+    else:
+        # секция [agent] без ключа — вставить после заголовка
+        text = re.sub(r"(?m)^\[agent\][ \t]*$", lambda mo: mo.group() + "\n" + line,
+                      text, count=1)
+    path.write_text(text, encoding="utf-8")
+    try:
+        import os
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
 def apply_server_groups(resp_data: dict | None, current: set[int], management: str,
                         store: ActiveGroups) -> set[int]:
     """

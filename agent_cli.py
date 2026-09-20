@@ -97,8 +97,29 @@ def start():
     print("Агент запущен")
 
 
+def update():
+    """Обновить код агента из репозитория и перезапустить сервис."""
+    import subprocess
+    print("Обновление кода…")
+    r = subprocess.run(["git", "-C", INSTALL_DIR, "pull", "--quiet"], text=True,
+                       capture_output=True)
+    if r.returncode != 0:
+        print("git pull не удался:", (r.stderr or r.stdout).strip()[:300])
+        print("Попробуйте переустановку по команде из бота.")
+        return
+    rr = subprocess.run([f"{INSTALL_DIR}/venv/bin/pip", "install", "-q", "-r", "requirements.txt"])
+    if rr.returncode != 0:
+        print("pip update failed")
+        return
+    subprocess.run([f"{INSTALL_DIR}/venv/bin/python", "core/setup.py", "build_ext", "--inplace"],
+                   cwd=INSTALL_DIR, capture_output=True)  # best-effort
+    subprocess.run(["systemctl", "restart", SERVICE_NAME])
+    print("Агент обновлён и перезапущен")
+
+
 COMMANDS = {
     "status": status,
+    "update": update,
     "reconfigure": reconfigure,
     "stop": stop,
     "start": start,

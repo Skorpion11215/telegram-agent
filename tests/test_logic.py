@@ -8,6 +8,7 @@ from agent_logic import (
     ActiveGroups,
     MessageDedup,
     apply_heartbeat_directive,
+    apply_heartbeat_management,
     apply_server_groups,
     build_ingest_body,
     find_tunnel_url,
@@ -19,6 +20,7 @@ from agent_logic import (
     sanitize_groups,
     should_reconfigure_requested,
     should_sync_requested,
+    write_management_ini,
 )
 
 
@@ -96,6 +98,25 @@ def test_flags():
     assert should_sync_requested({}) is False
     assert should_reconfigure_requested({"reconfigure": True}) is True
     assert should_reconfigure_requested(None) is False
+
+
+def test_apply_heartbeat_management_authoritative_mode():
+    assert apply_heartbeat_management({"management": "bot"}, "site") == "bot"
+    assert apply_heartbeat_management({"management": "site"}, "bot") == "site"
+    assert apply_heartbeat_management({"management": "bot"}, "bot") is None
+    assert apply_heartbeat_management({}, "site") is None
+    assert apply_heartbeat_management({"management": "junk"}, "site") is None
+
+
+def test_write_management_ini_replaces_and_keeps(tmp_path):
+    ini = tmp_path / "agent.ini"
+    ini.write_text("[telegram]\nsession = x\n\n[agent]\ntoken = t\nmanagement = site\n")
+    write_management_ini(ini, "bot")
+    cfg = read_config(ini)
+    assert cfg["management"] == "bot" and cfg["token"] == "t" and cfg["session"] == "x"
+    ini.write_text("[agent]\ntoken = t2\n")
+    write_management_ini(ini, "bot")
+    assert read_config(ini)["management"] == "bot" and read_config(ini)["token"] == "t2"
 
 
 # ── дедупликация ─────────────────────────────────────────────────────────────

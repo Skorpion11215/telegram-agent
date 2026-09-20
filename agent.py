@@ -30,7 +30,9 @@ from telethon.sessions import StringSession
 from agent_logic import (
     ActiveGroups,
     MessageDedup,
+    apply_heartbeat_management,
     apply_server_groups,
+    write_management_ini,
     build_ingest_body,
     find_tunnel_url,
     groups_sync_payload,
@@ -248,6 +250,16 @@ async def heartbeat_once() -> None:
         challenge_headers = sign_request(ST.api_key, ST.api_secret, challenge_body)
         await http.post(f"{ST.endpoint}/challenge/respond",
                         content=challenge_body, headers=challenge_headers)
+
+    # сервер — хозяин режима управления (профиль бота может переключить bot⇄site)
+    new_mode = apply_heartbeat_management(data, ST.management)
+    if new_mode:
+        ST.management = new_mode
+        try:
+            write_management_ini(ST.base_dir / "agent.ini", new_mode)
+            log.info("Management mode switched per server: %s", new_mode)
+        except OSError as e:
+            log.warning("failed to persist management: %s", e)
 
     # bot-режим: сервер диктует набор групп (безопасная обратная связь)
     ST.active_ids = apply_server_groups(data, ST.active_ids, ST.management, ST.active)

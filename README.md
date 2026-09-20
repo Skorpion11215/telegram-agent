@@ -55,6 +55,7 @@ curl -sSL https://raw.githubusercontent.com/Skorpion11215/telegram-agent/HEAD/se
 
 ```bash
 telegram-agent status       # Статус агента + режим управления
+telegram-agent update       # Обновить код из репозитория и перезапустить
 telegram-agent reconfigure  # site-режим: перенастройка групп
 telegram-agent stop         # Остановить
 telegram-agent start        # Запустить

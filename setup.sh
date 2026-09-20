@@ -82,8 +82,23 @@ echo -e "${GREEN}  OK${NC}"
 
 echo -e "${YELLOW}[2/8] Установка зависимостей...${NC}"
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq python3 python3-pip python3-venv git curl jq build-essential python3-dev 2>/dev/null
+PKGS="python3 python3-pip python3-venv git curl jq zstd build-essential python3-dev"
+apt-get update -qq || true
+if ! apt-get install -y -qq $PKGS; then
+    # На минимальных образах триггеры initramfs могут падать (например, без zstd) —
+    # если нужные бинарники на месте, это шум триггеров, а не провал установки.
+    _miss=0
+    for _b in python3 git curl jq; do command -v "$_b" >/dev/null 2>&1 || _miss=1; done
+    python3 -c "import venv" >/dev/null 2>&1 || _miss=1
+    if [ "$_miss" != 0 ]; then
+        apt-get -f install -y -qq || true
+        apt-get install -y -qq $PKGS || { echo "E: apt install failed"; exit 1; }
+        _miss=0
+        for _b in python3 git curl jq; do command -v "$_b" >/dev/null 2>&1 || _miss=1; done
+        [ "$_miss" = 0 ] || { echo "E: required binaries missing after apt"; exit 1; }
+    fi
+    echo -e "${YELLOW}  apt вернул ошибку триггеров — пакеты установлены, продолжаем${NC}"
+fi
 echo -e "${GREEN}  OK${NC}"
 
 echo -e "${YELLOW}[3/8] Загрузка кода...${NC}"
@@ -165,7 +180,7 @@ chmod 600 "$INSTALL_DIR/agent.ini"
 # ── [8/8] Безопасность сервера (по флагу --harden) ───────────────────────────
 echo -e "${YELLOW}[8/8] Безопасность сервера...${NC}"
 if [ "$HARDEN" = "1" ]; then
-    apt-get install -y -qq ufw fail2ban 2>/dev/null
+    apt-get install -y -qq ufw fail2ban
 
     # apt: свежие патчи безопасности
     apt-get upgrade -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" 2>/dev/null || true

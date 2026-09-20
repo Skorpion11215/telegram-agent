@@ -16,6 +16,7 @@ set -e
 #   --endpoint URL              адрес сервера бота (ingest API)
 #   --repo URL                  git-репозиторий с кодом агента
 #   --harden                    усилить безопасность сервера (ufw + fail2ban + apt update)
+#   --ssh-port N              порт SSH (по умолчанию 22) — его ufw и оставляет открытым
 #   --non-interactive           без ожидания терминала: сайт настройки под systemd,
 #                               URL туннеля отправляется на сервер (бот его покажет)
 
@@ -31,6 +32,7 @@ REPO="${AGENT_REPO:-https://github.com/Skorpion11215/telegram-agent.git}"
 INSTALL_DIR="/opt/telegram-agent"
 HARDEN=0
 NONINTERACTIVE=0
+SSH_PORT=22
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -38,6 +40,7 @@ while [ $# -gt 0 ]; do
         --management) MANAGEMENT="$2"; shift 2 ;;
         --endpoint) ENDPOINT="$2"; shift 2 ;;
         --repo) REPO="$2"; shift 2 ;;
+        --ssh-port) SSH_PORT="$2"; shift 2 ;;
         --harden) HARDEN=1; shift ;;
         --non-interactive) NONINTERACTIVE=1; shift ;;
         -h|--help)
@@ -189,7 +192,8 @@ if [ "$HARDEN" = "1" ]; then
     if ! ufw status | grep -q "Status: active"; then
         ufw default deny incoming >/dev/null
         ufw default allow outgoing >/dev/null
-        ufw allow OpenSSH >/dev/null
+        case "$SSH_PORT" in ''|*[!0-9]*) SSH_PORT=22 ;; esac
+        ufw allow "${SSH_PORT}/tcp" comment 'SSH' >/dev/null
         ufw --force enable >/dev/null
     fi
     systemctl enable --now ufw >/dev/null 2>&1 || true

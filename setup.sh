@@ -187,9 +187,9 @@ if [ "$HARDEN" = "1" ]; then
 
     # ufw: закрываем всё, кроме SSH
     if ! ufw status | grep -q "Status: active"; then
-        ufw --force default deny incoming >/dev/null
-        ufw --force default allow outgoing >/dev/null
-        ufw --force allow OpenSSH >/dev/null
+        ufw default deny incoming >/dev/null
+        ufw default allow outgoing >/dev/null
+        ufw allow OpenSSH >/dev/null
         ufw --force enable >/dev/null
     fi
     systemctl enable --now ufw >/dev/null 2>&1 || true

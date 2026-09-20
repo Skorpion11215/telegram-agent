@@ -102,6 +102,18 @@ def should_reconfigure_requested(resp_data) -> bool:
     return bool(isinstance(resp_data, dict) and resp_data.get("reconfigure"))
 
 
+def port_is_open(host: str = "127.0.0.1", port: int = 8080,
+                 timeout: float = 0.5) -> bool:
+    """Занят ли порт (сайт reconfigure уже поднят другим процессом)."""
+    import socket
+
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def find_tunnel_url(text: str) -> str | None:
     """Достать trycloudflare URL из вывода cloudflared."""
     match = TUNNEL_URL_RE.search(text or "")

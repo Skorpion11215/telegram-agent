@@ -177,6 +177,10 @@ async def _handle_reconfigure():
     if ST.management != "site":
         log.info("Reconfigure requested, but management=bot — группы управляются в боте, игнорируем")
         return
+    from agent_logic import port_is_open
+    if port_is_open(port=8080):
+        log.info("setup-web уже на :8080 — не поднимаем второй сайт (ождём URL)")
+        return
     import subprocess
 
     log.info("Запуск сайта перенастройки...")

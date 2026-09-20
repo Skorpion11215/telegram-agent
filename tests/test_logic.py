@@ -12,6 +12,7 @@ from agent_logic import (
     apply_server_groups,
     build_ingest_body,
     find_tunnel_url,
+    port_is_open,
     groups_sync_payload,
     is_forwardable_message,
     normalize_group_ids,
@@ -181,3 +182,14 @@ ids = 1,2
     assert cfg["api_id"] == "777"
     assert cfg["endpoint"] == "https://example.com"  # rstrip slash
     assert cfg["management"] == "bot"
+
+
+def test_port_is_open_probe():
+    import socket
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    assert port_is_open("127.0.0.1", port, timeout=0.5) is True
+    srv.close()
+    assert port_is_open("127.0.0.1", port, timeout=0.5) is False
